@@ -87,6 +87,8 @@ export interface Channel {
   disconnect(): Promise<void>;
   // Optional: typing indicator. Channels that support it implement it.
   setTyping?(jid: string, isTyping: boolean): Promise<void>;
+  // Optional: mark message processing as complete. Used to clear typing indicators and message context.
+  markProcessingComplete?(jid: string): Promise<void>;
 }
 
 // Callback type that channels use to deliver inbound messages

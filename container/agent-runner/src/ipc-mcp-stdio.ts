@@ -20,6 +20,9 @@ const chatJid = process.env.NANOCLAW_CHAT_JID!;
 const groupFolder = process.env.NANOCLAW_GROUP_FOLDER!;
 const isMain = process.env.NANOCLAW_IS_MAIN === '1';
 
+// Check if this is a Feishu channel (JID prefix indicates the channel)
+const isFeishu = chatJid.startsWith('feishu:');
+
 function writeIpcFile(dir: string, data: object): string {
   fs.mkdirSync(dir, { recursive: true });
 
@@ -39,28 +42,32 @@ const server = new McpServer({
   version: '1.0.0',
 });
 
-server.tool(
-  'send_message',
-  "Send a message to the user or group immediately while you're still running. Use this for progress updates or to send multiple messages. You can call this multiple times. Note: when running as a scheduled task, your final output is NOT sent to the user — use this tool if you need to communicate with the user or group.",
-  {
-    text: z.string().describe('The message text to send'),
-    sender: z.string().optional().describe('Your role/identity name (e.g. "Researcher"). When set, messages appear from a dedicated bot in Telegram.'),
-  },
-  async (args) => {
-    const data: Record<string, string | undefined> = {
-      type: 'message',
-      chatJid,
-      text: args.text,
-      sender: args.sender || undefined,
-      groupFolder,
-      timestamp: new Date().toISOString(),
-    };
+// Only register send_message tool for non-Feishu channels
+// Feishu uses reply threading which conflicts with send_message
+if (!isFeishu) {
+  server.tool(
+    'send_message',
+    "Send a message to the user or group immediately while you're still running. Use this for progress updates or to send multiple messages. You can call this multiple times. Note: when running as a scheduled task, your final output is NOT sent to the user — use this tool if you need to communicate with the user or group.",
+    {
+      text: z.string().describe('The message text to send'),
+      sender: z.string().optional().describe('Your role/identity name (e.g. "Researcher"). When set, messages appear from a dedicated bot in Telegram.'),
+    },
+    async (args) => {
+      const data: Record<string, string | undefined> = {
+        type: 'message',
+        chatJid,
+        text: args.text,
+        sender: args.sender || undefined,
+        groupFolder,
+        timestamp: new Date().toISOString(),
+      };
 
-    writeIpcFile(MESSAGES_DIR, data);
+      writeIpcFile(MESSAGES_DIR, data);
 
-    return { content: [{ type: 'text' as const, text: 'Message sent.' }] };
-  },
-);
+      return { content: [{ type: 'text' as const, text: 'Message sent.' }] };
+    },
+  );
+}
 
 server.tool(
   'schedule_task',

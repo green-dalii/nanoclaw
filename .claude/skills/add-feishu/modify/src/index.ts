@@ -176,27 +176,42 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   let hadError = false;
   let outputSentToUser = false;
 
+  // Determine if we should use streaming mode
+  // Feishu uses non-streaming to prevent duplicate messages from multiple agent outputs
+  // Other channels use streaming for real-time feedback
+  const isFeishu = chatJid.startsWith('feishu:');
+  const useStreaming = !isFeishu;
+
   const output = await runAgent(group, prompt, chatJid, async (result) => {
-    // Streaming output callback — called for each agent result
+    // Called for each agent result (both streaming and non-streaming).
+    // In streaming mode: send messages immediately for real-time feedback.
+    // In non-streaming mode: skip sending here (final result is sent
+    //   after container exits to prevent duplicate messages); but always
+    //   reset the idle timer so the container exit chain works.
     if (result.result) {
-      const raw = typeof result.result === 'string' ? result.result : JSON.stringify(result.result);
-      // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
-      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
-      logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
-      if (text) {
-        await channel.sendMessage(chatJid, text);
-        outputSentToUser = true;
-      }
-      // Only reset idle timer on actual results, not session-update markers (result: null)
+      // Always reset idle timer so the container eventually gets _close
       resetIdleTimer();
+
+      if (useStreaming) {
+        const raw = typeof result.result === 'string' ? result.result : JSON.stringify(result.result);
+        // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
+        const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+        logger.info({ group: group.name, textPreview: text.slice(0, 200) }, `Agent output: ${text.slice(0, 100)}`);
+        if (text) {
+          await channel.sendMessage(chatJid, text);
+          outputSentToUser = true;
+        }
+      }
     }
 
     if (result.status === 'error') {
       hadError = true;
     }
-  });
+  }, useStreaming);
 
   await channel.setTyping?.(chatJid, false);
+  // Mark processing complete to clear typing indicators and message context
+  await channel.markProcessingComplete?.(chatJid);
   if (idleTimer) clearTimeout(idleTimer);
 
   if (output === 'error' || hadError) {
@@ -221,6 +236,7 @@ async function runAgent(
   prompt: string,
   chatJid: string,
   onOutput?: (output: ContainerOutput) => Promise<void>,
+  streaming: boolean = true,
 ): Promise<'success' | 'error'> {
   const isMain = group.folder === MAIN_GROUP_FOLDER;
   const sessionId = sessions[group.folder];
@@ -250,18 +266,22 @@ async function runAgent(
     new Set(Object.keys(registeredGroups)),
   );
 
-  // Wrap onOutput to track session ID from streamed results
+  // Always wrap onOutput for runContainerAgent — the callback MUST be
+  // provided so that stdout output markers are parsed in real-time.
+  // This drives the idle timer chain that lets the container exit:
+  //   output marker → onOutput → resetIdleTimer → closeStdin → _close
   const wrappedOnOutput = onOutput
     ? async (output: ContainerOutput) => {
-        if (output.newSessionId) {
-          sessions[group.folder] = output.newSessionId;
-          setSession(group.folder, output.newSessionId);
-        }
-        await onOutput(output);
+      if (output.newSessionId) {
+        sessions[group.folder] = output.newSessionId;
+        setSession(group.folder, output.newSessionId);
       }
+      await onOutput(output);
+    }
     : undefined;
 
   try {
+    logger.info({ group: group.name, streaming }, 'runAgent: starting container agent');
     const output = await runContainerAgent(
       group,
       {
@@ -270,14 +290,32 @@ async function runAgent(
         groupFolder: group.folder,
         chatJid,
         isMain,
+        isOneShot: !streaming,
       },
       (proc, containerName) => queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,
     );
 
+    logger.info({ group: group.name, status: output.status, hasResult: !!output.result, hasError: !!output.error }, 'runAgent: container agent completed');
+
     if (output.newSessionId) {
       sessions[group.folder] = output.newSessionId;
       setSession(group.folder, output.newSessionId);
+    }
+
+    // Non-streaming mode: process the final result after container completes
+    if (!streaming && onOutput) {
+      logger.info({ group: group.name, status: output.status, hasResult: !!output.result }, 'Non-streaming: container completed, processing result');
+      if (output.status === 'success' && output.result) {
+        // Call onOutput directly to handle the result (this triggers the callback in processMessages)
+        await onOutput({
+          status: 'success',
+          result: output.result,
+          newSessionId: output.newSessionId,
+        });
+      } else {
+        logger.warn({ group: group.name, status: output.status, result: output.result, error: output.error }, 'Non-streaming: no result to send');
+      }
     }
 
     if (output.status === 'error') {
@@ -441,6 +479,8 @@ async function main(): Promise<void> {
       onChatMetadata: (chatJid: string, timestamp: string, name?: string, channel?: string, isGroup?: boolean) =>
         storeChatMetadata(chatJid, timestamp, name, channel, isGroup),
       registeredGroups: () => registeredGroups,
+      registerGroup: async (jid: string, group: RegisteredGroup) => registerGroup(jid, group),
+      mainGroupFolder: MAIN_GROUP_FOLDER,
     });
     channels.push(feishu);
     await feishu.connect();
@@ -459,6 +499,8 @@ async function main(): Promise<void> {
         onChatMetadata: (chatJid: string, timestamp: string, name?: string, channel?: string, isGroup?: boolean) =>
           storeChatMetadata(chatJid, timestamp, name, channel, isGroup),
         registeredGroups: () => registeredGroups,
+        registerGroup: async (jid: string, group: RegisteredGroup) => registerGroup(jid, group),
+        mainGroupFolder: MAIN_GROUP_FOLDER,
       });
       channels.push(feishu);
       await feishu.connect();

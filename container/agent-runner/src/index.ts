@@ -26,6 +26,7 @@ interface ContainerInput {
   chatJid: string;
   isMain: boolean;
   isScheduledTask?: boolean;
+  isOneShot?: boolean;
   secrets?: Record<string, string>;
 }
 
@@ -376,6 +377,16 @@ async function runQuery(
       ipcPolling = false;
       return;
     }
+
+    // In one-shot mode (non-streaming), end the query stream
+    // after the agent has emitted at least one result. This lets the SDK
+    // finish cleanly so the container can exit.
+    if (containerInput.isOneShot && resultCount > 0) {
+      log('One-shot mode and result received, ending query stream');
+      stream.end();
+      ipcPolling = false;
+      return;
+    }
     const messages = drainIpcInput();
     for (const text of messages) {
       log(`Piping IPC message into active query (${text.length} chars)`);
@@ -536,8 +547,10 @@ async function main(): Promise<void> {
 
   // Query loop: run query → wait for IPC message → run new query → repeat
   let resumeAt: string | undefined;
+
   try {
     while (true) {
+
       log(`Starting query (session: ${sessionId || 'new'}, resumeAt: ${resumeAt || 'latest'})...`);
 
       const queryResult = await runQuery(prompt, sessionId, mcpServerPath, containerInput, sdkEnv, resumeAt);
@@ -558,6 +571,12 @@ async function main(): Promise<void> {
 
       // Emit session update so host can track it
       writeOutput({ status: 'success', result: null, newSessionId: sessionId });
+
+      // Exit if in one-shot mode (non-streaming).
+      if (containerInput.isOneShot) {
+        log('One-shot mode, exiting after query');
+        break;
+      }
 
       log('Query ended, waiting for next IPC message...');
 

@@ -193,10 +193,13 @@ tail -f logs/nanoclaw.log
 5. Check Feishu app permissions are enabled and app is published
 
 ### WebSocket connection errors
+...
+### Container Deadlock (Typing indicator not removed)
 
-If you see `[ws] Invalid URL` errors:
-- Ensure the Feishu app is published (test version or official)
-- Check that long connection mode is enabled in event subscription settings
+If the Feishu bot hangs with "Typing..." and never responds:
+1. Ensure `isOneShot: true` is being passed to `runContainerAgent` for non-streaming queries.
+2. Check that `runAgent` always passes a callback to `runContainerAgent` to enable stdout marker parsing.
+3. Verify the container's `agent-runner` is updated to handle the `isOneShot` flag.
 
 ### Getting chat ID
 
