@@ -441,6 +441,8 @@ async function main(): Promise<void> {
       onChatMetadata: (chatJid: string, timestamp: string, name?: string, channel?: string, isGroup?: boolean) =>
         storeChatMetadata(chatJid, timestamp, name, channel, isGroup),
       registeredGroups: () => registeredGroups,
+      registerGroup: async (jid: string, group: RegisteredGroup) => registerGroup(jid, group),
+      mainGroupFolder: MAIN_GROUP_FOLDER,
     });
     channels.push(feishu);
     await feishu.connect();
@@ -459,6 +461,8 @@ async function main(): Promise<void> {
         onChatMetadata: (chatJid: string, timestamp: string, name?: string, channel?: string, isGroup?: boolean) =>
           storeChatMetadata(chatJid, timestamp, name, channel, isGroup),
         registeredGroups: () => registeredGroups,
+        registerGroup: async (jid: string, group: RegisteredGroup) => registerGroup(jid, group),
+        mainGroupFolder: MAIN_GROUP_FOLDER,
       });
       channels.push(feishu);
       await feishu.connect();

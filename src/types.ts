@@ -102,3 +102,11 @@ export type OnChatMetadata = (
   channel?: string,
   isGroup?: boolean,
 ) => void;
+
+// Callback for auto-registering new chats (used by Feishu for p2p chats)
+export type OnNewChat = (
+  chatJid: string,
+  name: string,
+  folder: string,
+  isGroup: boolean,
+) => Promise<boolean>;

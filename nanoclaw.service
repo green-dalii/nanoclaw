@@ -9,9 +9,12 @@ User=%I
 WorkingDirectory=/home/%I/nanoclaw
 Environment="NODE_ENV=production"
 Environment="HOME=/home/%I"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
-# Start the service
-ExecStart=/usr/bin/npm run start
+# IMPORTANT: Update the following paths according to your Node.js installation
+# For NodeSource installation (default): /usr/bin/node and /usr/bin/npm
+# For nvm installation: /home/%I/.nvm/versions/node/vXX.X.X/bin/node
+ExecStart=/usr/bin/node /usr/bin/npm run start
 
 # Restart policy
 Restart=always

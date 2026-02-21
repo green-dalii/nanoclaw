@@ -49,7 +49,7 @@ Then run `/setup`. Claude Code handles everything: dependencies, authentication,
 ## What It Supports
 
 - **WhatsApp I/O** - Message Claude from your phone
-- **Feishu (Lark) I/O** - Message Claude from Feishu/Lark via WebSocket (no public URL needed)
+- **Feishu (Lark) I/O** - Message Claude from Feishu/Lark via WebSocket (no public URL needed); private chats auto-register without manual configuration
 - **Isolated group context** - Each group has its own `CLAUDE.md` memory, isolated filesystem, and runs in its own container sandbox with only that filesystem mounted
 - **Main channel** - Your private channel (self-chat) for admin control; every other group is completely isolated
 - **Scheduled tasks** - Recurring jobs that run Claude and can message you back

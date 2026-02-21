@@ -1,7 +1,7 @@
 # NanoClaw Agent Container
 # Runs Claude Agent SDK in isolated Linux VM with browser automation
 
-FROM node:22-slim
+FROM docker.1ms.run/node:22-slim
 
 # Replace Debian apt sources with Chinese mirror BEFORE apt-get update
 RUN echo 'deb https://mirrors.ustc.edu.cn/debian/ bookworm main contrib non-free' > /etc/apt/sources.list && \

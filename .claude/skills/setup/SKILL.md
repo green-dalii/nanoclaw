@@ -176,6 +176,18 @@ Tell user how to grant a group access: add `containerConfig.additionalMounts` to
 
 If the service is already running (check `launchctl list | grep nanoclaw` on macOS), unload it first: `launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist` — then proceed with a clean install.
 
+**Important for nvm users:** The setup script detects the Node.js path dynamically (`which node`), but if you're using nvm and the service fails to start on Linux with errors like "node: No such file or directory", you may need to manually edit the generated service file:
+
+```bash
+# Check the generated service file
+systemctl --user cat nanoclaw.service
+
+# If the ExecStart path doesn't match your nvm installation, edit it:
+systemctl --user edit nanoclaw.service --full
+# Update ExecStart to use your full nvm path:
+# ExecStart=/home/YOURNAME/.nvm/versions/node/vXX.X.X/bin/node /home/YOURNAME/.nvm/versions/node/vXX.X.X/bin/npm run start
+```
+
 Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status block.
 
 **If SERVICE_LOADED=false:**
@@ -183,6 +195,7 @@ Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status bl
 - Common fix: plist already loaded with different path. Unload the old one first, then re-run.
 - On macOS: check `launchctl list | grep nanoclaw` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanoclaw.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing auth).
 - On Linux: check `systemctl --user status nanoclaw` for the error and fix accordingly.
+- **Linux nvm users:** If the error is "env: 'node': No such file or directory", the systemd service can't find the nvm node. Edit the service file to use absolute paths to your nvm node binary.
 - Re-run the setup-service script after fixing.
 
 ## 11. Verify

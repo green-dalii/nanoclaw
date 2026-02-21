@@ -15,6 +15,8 @@ export interface FeishuChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
+  registerGroup?: (jid: string, group: RegisteredGroup) => Promise<void>;
+  mainGroupFolder?: string;
 }
 
 export class FeishuChannel implements Channel {
@@ -67,7 +69,7 @@ export class FeishuChannel implements Channel {
 
       const message = data.message;
       const sender = data.sender;
-      const chatType = data.chat_type;
+      const chatType = message.chat_type;
       const messageId = message.message_id;
 
       logger.info({ chatType, senderOpenId: sender?.sender_id?.open_id, messageId }, 'Feishu: parsed message info');
@@ -110,10 +112,35 @@ export class FeishuChannel implements Channel {
       this.opts.onChatMetadata(chatJid, timestamp, undefined, 'feishu', chatType === 'group');
 
       // Only deliver full message for registered chats
-      const group = this.opts.registeredGroups()[chatJid];
+      let group = this.opts.registeredGroups()[chatJid];
+      logger.info({ chatJid, groupExists: !!group, chatType, hasRegisterCallback: !!this.opts.registerGroup }, 'Feishu: checking chat registration');
       if (!group) {
-        logger.debug(`Feishu: ignoring message from unregistered chat ${chatJid}`);
-        return;
+        // Auto-register p2p (private) chats if registerGroup callback is provided
+        if (chatType === 'p2p' && this.opts.registerGroup) {
+          logger.info({ chatJid }, 'Feishu: auto-registering new private chat');
+
+          const folderName = this.opts.mainGroupFolder || 'main';
+          const newGroup: RegisteredGroup = {
+            name: 'Private Chat',
+            folder: folderName,
+            trigger: '@Andy',
+            added_at: timestamp,
+            requiresTrigger: false, // Private chats don't require trigger
+          };
+
+          try {
+            await this.opts.registerGroup(chatJid, newGroup);
+            logger.info({ chatJid, folder: folderName }, 'Feishu: auto-registered private chat');
+            // Re-fetch the registered groups to get the newly registered one
+            group = this.opts.registeredGroups()[chatJid];
+          } catch (error) {
+            logger.error({ chatJid, error }, 'Feishu: failed to auto-register private chat');
+            return;
+          }
+        } else {
+          logger.debug(`Feishu: ignoring message from unregistered chat ${chatJid}`);
+          return;
+        }
       }
 
       // Create NewMessage object
