@@ -1,0 +1,30 @@
+[Unit]
+Description=NanoClaw - Personal Claude Assistant
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=%I
+WorkingDirectory=/home/%I/nanoclaw
+Environment="NODE_ENV=production"
+Environment="HOME=/home/%I"
+
+# Start the service
+ExecStart=/usr/bin/npm run start
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nanoclaw
+
+[Install]
+WantedBy=multi-user.target

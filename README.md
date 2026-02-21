@@ -49,13 +49,14 @@ Then run `/setup`. Claude Code handles everything: dependencies, authentication,
 ## What It Supports
 
 - **WhatsApp I/O** - Message Claude from your phone
+- **Feishu (Lark) I/O** - Message Claude from Feishu/Lark via WebSocket (no public URL needed)
 - **Isolated group context** - Each group has its own `CLAUDE.md` memory, isolated filesystem, and runs in its own container sandbox with only that filesystem mounted
 - **Main channel** - Your private channel (self-chat) for admin control; every other group is completely isolated
 - **Scheduled tasks** - Recurring jobs that run Claude and can message you back
 - **Web access** - Search and fetch content
 - **Container isolation** - Agents sandboxed in Apple Container (macOS) or Docker (macOS/Linux)
 - **Agent Swarms** - Spin up teams of specialized agents that collaborate on complex tasks (first personal AI assistant to support this)
-- **Optional integrations** - Add Gmail (`/add-gmail`) and more via skills
+- **Optional integrations** - Add Gmail (`/add-gmail`), Telegram (`/add-telegram`), and more via skills
 
 ## Usage
 
@@ -116,6 +117,7 @@ Skills we'd love to see:
 
 **Communication Channels**
 - `/add-telegram` - Add Telegram as channel. Should give the user option to replace WhatsApp or add as additional channel. Also should be possible to add it as a control channel (where it can trigger actions) or just a channel that can be used in actions triggered elsewhere
+- `/add-feishu` - Add Feishu (Lark) as channel. Supports both group chats and private messages via WebSocket long connection
 - `/add-slack` - Add Slack
 - `/add-discord` - Add Discord
 
@@ -135,7 +137,7 @@ Skills we'd love to see:
 ## Architecture
 
 ```
-WhatsApp (baileys) --> SQLite --> Polling loop --> Container (Claude Agent SDK) --> Response
+WhatsApp (baileys) / Feishu (WebSocket) --> SQLite --> Polling loop --> Container (Claude Agent SDK) --> Response
 ```
 
 Single Node.js process. Agents execute in isolated Linux containers with mounted directories. Per-group message queue with concurrency control. IPC via filesystem.
@@ -143,6 +145,7 @@ Single Node.js process. Agents execute in isolated Linux containers with mounted
 Key files:
 - `src/index.ts` - Orchestrator: state, message loop, agent invocation
 - `src/channels/whatsapp.ts` - WhatsApp connection, auth, send/receive
+- `src/channels/feishu.ts` - Feishu/Lark connection, WebSocket long connection
 - `src/ipc.ts` - IPC watcher and task processing
 - `src/router.ts` - Message formatting and outbound routing
 - `src/group-queue.ts` - Per-group queue with global concurrency limit

@@ -3,6 +3,11 @@
 
 FROM node:22-slim
 
+# Replace Debian apt sources with Chinese mirror BEFORE apt-get update
+RUN echo 'deb https://mirrors.ustc.edu.cn/debian/ bookworm main contrib non-free' > /etc/apt/sources.list && \
+    echo 'deb https://mirrors.ustc.edu.cn/debian/ bookworm-updates main contrib non-free' >> /etc/apt/sources.list && \
+    echo 'deb https://mirrors.ustc.edu.cn/debian-security/ bookworm-security main contrib non-free' >> /etc/apt/sources.list
+
 # Install system dependencies for Chromium
 RUN apt-get update && apt-get install -y \
     chromium \
@@ -29,6 +34,9 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
+# Use Chinese npm mirror
+RUN npm config set registry https://registry.npmmirror.com
+
 # Install agent-browser and claude-code globally
 RUN npm install -g agent-browser @anthropic-ai/claude-code
 
@@ -39,6 +47,7 @@ WORKDIR /app
 COPY agent-runner/package*.json ./
 
 # Install dependencies
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install
 
 # Copy source code

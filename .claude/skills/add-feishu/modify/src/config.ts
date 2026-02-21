@@ -17,10 +17,6 @@ export const ASSISTANT_NAME =
   process.env.ASSISTANT_NAME || envConfig.ASSISTANT_NAME || 'Andy';
 export const ASSISTANT_HAS_OWN_NUMBER =
   (process.env.ASSISTANT_HAS_OWN_NUMBER || envConfig.ASSISTANT_HAS_OWN_NUMBER) === 'true';
-export const FEISHU_APP_ID = process.env.FEISHU_APP_ID || envConfig.FEISHU_APP_ID;
-export const FEISHU_APP_SECRET = process.env.FEISHU_APP_SECRET || envConfig.FEISHU_APP_SECRET;
-export const FEISHU_ONLY =
-  (process.env.FEISHU_ONLY || envConfig.FEISHU_ONLY) === 'true';
 export const POLL_INTERVAL = 2000;
 export const SCHEDULER_POLL_INTERVAL = 60000;
 
@@ -65,7 +61,7 @@ function escapeRegex(str: string): string {
 }
 
 export const TRIGGER_PATTERN = new RegExp(
-  `^@${escapeRegex(ASSISTANT_NAME)}\\b`,
+  `^@${escapeRegex(ASSISTANT_NAME)}\b`,
   'i',
 );
 
@@ -73,3 +69,9 @@ export const TRIGGER_PATTERN = new RegExp(
 // Uses system timezone by default
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// Feishu configuration
+export const FEISHU_APP_ID = process.env.FEISHU_APP_ID || envConfig.FEISHU_APP_ID;
+export const FEISHU_APP_SECRET = process.env.FEISHU_APP_SECRET || envConfig.FEISHU_APP_SECRET;
+export const FEISHU_ONLY =
+  (process.env.FEISHU_ONLY || envConfig.FEISHU_ONLY) === 'true';

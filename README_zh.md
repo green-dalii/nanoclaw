@@ -48,13 +48,14 @@ claude
 ## 功能支持
 
 - **WhatsApp 输入/输出** - 通过手机给 Claude 发消息
+- **飞书 (Feishu/Lark) 输入/输出** - 通过飞书给 Claude 发消息，支持 WebSocket 长连接（无需公网域名）
 - **隔离的群组上下文** - 每个群组都有其独立的 `CLAUDE.md` 记忆、隔离的文件系统，并在其自己的容器沙箱中运行，只挂载该文件系统
 - **主频道** - 你的私有频道（self-chat），用于管理控制；其他所有群组都完全隔离
 - **计划任务** - 运行 Claude 的周期性作业，并可以给你回发消息
 - **网络访问** - 搜索和抓取网页内容
 - **容器隔离** - 智能体在 Apple Container (macOS) 或 Docker (macOS/Linux) 的沙箱中运行
 - **智能体集群（Agent Swarms）** - 启动多个专业智能体团队，协作完成复杂任务（首个支持此功能的个人 AI 助手）
-- **可选集成** - 通过技能添加 Gmail (`/add-gmail`) 等更多功能
+- **可选集成** - 通过技能添加 Gmail (`/add-gmail`)、Telegram (`/add-telegram`)、飞书 (`/add-feishu`) 等更多功能
 
 ## 使用方法
 
@@ -100,6 +101,7 @@ claude
 
 **通信渠道**
 - `/add-telegram` - 添加 Telegram 作为渠道。应提供选项让用户选择替换 WhatsApp 或作为额外渠道添加。也应能将其添加为控制渠道（可以触发动作）或仅作为被其他地方触发的动作所使用的渠道。
+- `/add-feishu` - 添加飞书作为渠道。支持群聊和私聊，通过 WebSocket 长连接方式（无需公网域名）
 - `/add-slack` - 添加 Slack
 - `/add-discord` - 添加 Discord
 
@@ -119,7 +121,7 @@ claude
 ## 架构
 
 ```
-WhatsApp (baileys) --> SQLite --> 轮询循环 --> 容器 (Claude Agent SDK) --> 响应
+WhatsApp (baileys) / 飞书 (WebSocket) --> SQLite --> 轮询循环 --> 容器 (Claude Agent SDK) --> 响应
 ```
 
 单一 Node.js 进程。智能体在具有挂载目录的隔离 Linux 容器中执行。每个群组独立的消息队列，带全局并发控制。通过文件系统进行进程间通信（IPC）。
@@ -127,6 +129,7 @@ WhatsApp (baileys) --> SQLite --> 轮询循环 --> 容器 (Claude Agent SDK) -->
 关键文件：
 - `src/index.ts` - 编排器：状态管理、消息循环、智能体调用
 - `src/channels/whatsapp.ts` - WhatsApp 连接、认证、收发消息
+- `src/channels/feishu.ts` - 飞书连接、WebSocket 长连接
 - `src/ipc.ts` - IPC 监听与任务处理
 - `src/router.ts` - 消息格式化与出站路由
 - `src/group-queue.ts` - 每群组队列，带全局并发限制
